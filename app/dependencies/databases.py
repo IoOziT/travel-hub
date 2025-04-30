@@ -1,7 +1,7 @@
 import json
 import zlib
 from datetime import timedelta
-from typing import Annotated, Callable, TypedDict
+from typing import Annotated, Callable, TypedDict, cast
 
 from app.config import AppSettings, get_app_settings
 from app.helpers.json import JSONEncoder
@@ -70,7 +70,7 @@ def get_redis_instance(
         return driver_cache["redis"]
 
     try:
-        redis = Redis.from_url(str(app_settings.redis.uri))
+        redis = Redis.from_url(str(app_settings.redis.uri), decode_responses=True)
     except RedisError:
         raise HTTPException(500, "Something went wrong, please try again later")
     else:
@@ -93,14 +93,12 @@ class AppDbDrivers:
     def cached_query[R](
         self, query: Callable[["AppDbDrivers"], R], *, key: str, ttl: int | timedelta
     ) -> R:
-        cache = self.redis.get(key)
+        cache = cast(str, self.redis.get(key))
 
-        if cache is not None and len(cache) > 0:
-            return json.loads(zlib.decompress(cache).decode())
+        if cache is not None:
+            return json.loads(zlib.decompress(bytes.fromhex(cache)).decode())
 
         query_result = query(self)
-
-        print(query_result)
 
         json_result = (
             query_result.model_dump_json()
@@ -108,7 +106,6 @@ class AppDbDrivers:
             else json.dumps(query_result, cls=JSONEncoder)
         )
 
-        self.redis.set(key, zlib.compress(json_result.encode()))
-        self.redis.expire(key, ttl)
+        self.redis.set(key, zlib.compress(json_result.encode()).hex(), ex=ttl)
 
         return query_result

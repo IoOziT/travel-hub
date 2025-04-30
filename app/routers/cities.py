@@ -30,7 +30,7 @@ def get_offers(
 
 @router.post("/", summary="Create a city")
 def new_city(drivers: Annotated[AppDbDrivers, Depends()], city: City):
-    return ResponseModel(data=cities.create_city(drivers, city))
+    return ResponseModel(data=cities.create_city(drivers, city=city))
 
 
 @router.get(

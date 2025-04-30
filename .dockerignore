@@ -1,0 +1,6 @@
+*.md
+*.pdf
+*.yml
+__pycache__
+venv
+*.env

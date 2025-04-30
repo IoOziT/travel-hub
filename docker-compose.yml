@@ -1,0 +1,55 @@
+services:
+  app:
+    profiles:
+      - all
+    build:
+      dockerfile: Dockerfile
+      context: .
+    develop:
+      watch:
+        - path: app
+          target: /app
+          action: rebuild
+    env_file:
+      - docker.env
+    environment:
+      RUN_SEED: true
+    ports:
+      - 8000:8000
+
+  redis:
+    profiles:
+      - all
+      - databases
+    image: redis/redis-stack
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+    ports:
+      - 6379:6379
+
+  redis-subscriber:
+    profiles:
+      - all
+      - databases
+    image: redis
+    entrypoint: ["redis-cli", "SUBCRIBE", "offers:new"]
+
+  redis-insight:
+    profiles:
+      - all
+      - databases
+    image: redis/redisinsight
+    volumes:
+      - redis-insight-data:/data
+    environment:
+      RI_REDIS_HOST: redis
+    ports:
+      - 5540:5540
+    depends_on:
+      - redis
+
+volumes:
+  redis-insight-data:
